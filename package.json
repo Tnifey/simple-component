@@ -13,6 +13,7 @@
     "vite": "^4.4.5"
   },
   "dependencies": {
+    "@vue/reactivity": "^3.3.4",
     "lit-html": "^2.8.0"
   }
 }

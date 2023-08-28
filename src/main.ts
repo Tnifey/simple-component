@@ -1,21 +1,29 @@
-import { html } from 'lit-html';
 import './style.css';
-import { component } from './component';
+import { createComponent, html } from './component';
 
-function Butt(props: any) {
-  const template = (props: any) => html`
-    <button class="btn" @click=${props.countUp}>${props.count}</button>
-  `;
+const Child = createComponent({
+  setup: () => ({ count: 0 }),
+  render: (state: any, { ref, add, sub }) => html`
+    <button @click=${add} @contextmenu=${sub} ${ref}>
+      This is child: ${state.count}
+    </button>
+  `,
+  add(e: any) {
+    e.preventDefault();
+    Child.state.count += 1;
+  },
+  sub(e: any) {
+    e.preventDefault();
+    Child.state.count -= 1;
+  },
+});
 
-  return component(template, props, (props, update) => ({
-    count: props()?.count ?? 0,
-    countUp() {
-      update((props: any) => ({
-        ...props,
-        count: props.count + 1,
-      }));
-    },
-  }));
-}
-
-Butt({ hello: "world" }).render("#app");
+const Parent = createComponent({
+  root: document.querySelector('#app-1')!,
+  render: () => html`
+    <div>
+      <div>This is parent (but state from Child): ${Child.state.count}</div>
+      ${Child.template()}
+    </div>
+  `,
+});

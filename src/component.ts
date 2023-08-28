@@ -1,58 +1,49 @@
-import { RenderOptions, TemplateResult, render as litRender } from "lit-html";
+import { reactive, effect, effectScope } from '@vue/reactivity';
+import { render as $render, TemplateResult } from 'lit-html';
+import { createRef, ref as $ref } from 'lit-html/directives/ref.js';
 
-export type TemlpateFunction = (props?: any) => TemplateResult;
-export type ContextFunction = (self: any, props?: any) => Record<string, any>;
+export { html } from 'lit-html';
+export { reactive, computed, ref } from '@vue/reactivity';
 
-export function component(template: TemlpateFunction, initial: Record<string, any> = {}, context: ContextFunction = () => ({})) {
-    const [state, update, observe] = useState<any>(initial);
+export type Context = {
+    ref: ReturnType<typeof $ref>;
+    self: any;
+    [key: string]: any;
+};
 
-    return {
-        state: () => state,
-        update,
-        observe,
-        render(target: any, options?: RenderOptions) {
-            const targetElement = typeof target === "string" ? document.querySelector(target)
-                : typeof target === 'function' ? target({ state, update, observe }) : target;
+export type ComponentOptions<State> = {
+    root?: Element | HTMLElement | DocumentFragment;
+    render: (state: State, context: Context) => TemplateResult;
+    setup?: () => State;
+    [key: string]: any;
+};
 
-            function render(state: any) {
-                litRender(template(state), targetElement, options);
-            }
+export function createComponent<T = Record<string, any>>(options: ComponentOptions<T>) {
+    const { root, render: template, setup = () => ({}), ...rest } = options;
+    const scope = effectScope();
+    const state = reactive(setup() as object);
+    const ref = createRef();
 
-            observe(render);
+    function $template() {
+        const context = { ref: $ref(ref) as any, self: ref.value, ...rest } as const;
+        return template(state as unknown as T, context);
+    }
 
-            update((state: any) => ({
-                ...context(() => state, update),
-                ...state,
-            }));
+    function render(root?: HTMLElement | DocumentFragment) {
+        if (!root) return;
+        $render($template(), root as DocumentFragment);
+    }
 
-            return [() => state, update];
-        },
+    effect(() => render(root as any), { lazy: true, scope })();
+
+    const component = [state as T, ref] as const;
+    (component as Record<string, any>).state = state;
+    (component as Record<string, any>).ref = ref;
+    (component as Record<string, any>).template = $template;
+
+    return component as [T, ReturnType<typeof $ref>] & {
+        state: T;
+        ref: ReturnType<typeof $ref>;
+        template: () => TemplateResult;
     };
 }
-
-
-export function useState<T = any>(initial: T) {
-    const observers = new Set<Function>();
-    let value: T = initial;
-
-    function setValue(update: T | ((value: T) => T)) {
-        value = (typeof update === 'function' ? (update as Function)(value) : update) as T;
-        trigger();
-        return value;
-    }
-
-    function trigger() {
-        observers.forEach(fn => fn(value));
-    }
-
-    function observe(fn: (value: T) => any, options?: {
-        immediate?: boolean;
-    }) {
-        if (options?.immediate) fn(value);
-        observers.add(fn);
-        return () => observers.delete(fn);
-    }
-
-    return [value, setValue, observe, trigger] as const;
-}
-
