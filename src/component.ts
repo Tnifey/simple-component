@@ -5,31 +5,29 @@ import { createRef, ref as $ref } from 'lit-html/directives/ref.js';
 export { html } from 'lit-html';
 export { reactive, computed, ref } from '@vue/reactivity';
 
-export type Context = {
+export type Context<C> = {
     ref: ReturnType<typeof $ref>;
-    self: any;
-    [key: string]: any;
-};
+    self: HTMLElement | Element | null;
+} & C;
 
-export type ComponentOptions<State> = {
+export type ComponentOptions<S, C> = {
     root?: Element | HTMLElement | DocumentFragment;
-    setup?: () => State;
-    render: (state: State, $: Context) => TemplateResult;
-    [key: string]: any;
-};
+    setup?: () => S;
+    render: (state: S, $: Context<C>) => TemplateResult;
+} & C;
 
-export function createComponent<T = Record<string, any>>(options: ComponentOptions<T>) {
+export function component<S, C = Record<string, any>>(options: ComponentOptions<S, C>) {
     const { root, render: template, setup = () => ({}), ...rest } = options;
-    const scope = effectScope();
+    const scope = effectScope(false);
     const state = reactive(setup() as object);
     const ref = createRef();
 
     function $context() {
-        return { ref: $ref(ref) as any, self: ref.value, ...rest } as const as Context;
+        return { ref: $ref(ref) as any, self: ref.value, ...rest } as const as Context<C>;
     }
 
     function $template(additionalState = {}) {
-        return template({ ...state, ...additionalState } as const as T, $context());
+        return template({ ...state, ...additionalState } as const as S, $context());
     }
 
     function render(root?: HTMLElement | DocumentFragment) {
@@ -37,13 +35,18 @@ export function createComponent<T = Record<string, any>>(options: ComponentOptio
         $render($template(), root as DocumentFragment);
     }
 
-    effect(() => render(root as any), { lazy: true, scope })();
+    const subscribe = effect(() => render(root as any), {
+        lazy: true,
+        scope,
+    });
 
-    return Object.assign($template, [state as T, ref] as const, {
+    subscribe();
+
+    return Object.assign($template, [state as S, ref] as const, {
         render,
         scope,
         get state() {
-            return state as T;
+            return state as S;
         },
         get ref() {
             return ref.value;
@@ -53,3 +56,7 @@ export function createComponent<T = Record<string, any>>(options: ComponentOptio
         },
     });
 }
+
+// export function createComponent<S, C = Record<string, any>>(options: ComponentOptions<S, C>) {
+//     return () => component(options);
+// }

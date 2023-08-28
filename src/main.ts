@@ -1,11 +1,10 @@
 import './style.css';
-import { createComponent, html } from './component';
+import { component, html } from './component';
 
-const Child = createComponent({
+const Child = component({
   render: (state: any, $) => html`
     <button @click=${$.add} @contextmenu=${$.sub} ${$.ref}>
       This is child: ${state.count}
-      ${state.kek}
     </button>
   `,
   setup: () => ({ count: 0 }),
@@ -19,12 +18,12 @@ const Child = createComponent({
   },
 });
 
-const Parent = createComponent({
+const Parent = component({
   root: document.querySelector('#app-1')!,
   render: () => html`
     <div>
       <div>This is parent (but state from Child): ${Child.state.count}</div>
-      ${Child({ kek: 'world' })}
+      ${Child()}
     </div>
   `,
 });
