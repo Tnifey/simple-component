@@ -56,7 +56,3 @@ export function component<S, C = Record<string, any>>(options: ComponentOptions<
         },
     });
 }
-
-// export function createComponent<S, C = Record<string, any>>(options: ComponentOptions<S, C>) {
-//     return () => component(options);
-// }
