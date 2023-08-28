@@ -13,8 +13,8 @@ export type Context = {
 
 export type ComponentOptions<State> = {
     root?: Element | HTMLElement | DocumentFragment;
-    render: (state: State, context: Context) => TemplateResult;
     setup?: () => State;
+    render: (state: State, $: Context) => TemplateResult;
     [key: string]: any;
 };
 
@@ -24,9 +24,12 @@ export function createComponent<T = Record<string, any>>(options: ComponentOptio
     const state = reactive(setup() as object);
     const ref = createRef();
 
-    function $template() {
-        const context = { ref: $ref(ref) as any, self: ref.value, ...rest } as const;
-        return template(state as unknown as T, context);
+    function $context() {
+        return { ref: $ref(ref) as any, self: ref.value, ...rest } as const as Context;
+    }
+
+    function $template(additionalState = {}) {
+        return template({ ...state, ...additionalState } as const as T, $context());
     }
 
     function render(root?: HTMLElement | DocumentFragment) {
@@ -36,14 +39,17 @@ export function createComponent<T = Record<string, any>>(options: ComponentOptio
 
     effect(() => render(root as any), { lazy: true, scope })();
 
-    const component = [state as T, ref] as const;
-    (component as Record<string, any>).state = state;
-    (component as Record<string, any>).ref = ref;
-    (component as Record<string, any>).template = $template;
-
-    return component as [T, ReturnType<typeof $ref>] & {
-        state: T;
-        ref: ReturnType<typeof $ref>;
-        template: () => TemplateResult;
-    };
+    return Object.assign($template, [state as T, ref] as const, {
+        render,
+        scope,
+        get state() {
+            return state as T;
+        },
+        get ref() {
+            return ref.value;
+        },
+        get template() {
+            return $template();
+        },
+    });
 }
